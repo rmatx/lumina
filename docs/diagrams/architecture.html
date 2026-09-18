@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMINA · Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #eb6c36;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 900px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · LUMINA</p>
+    <h1>Where a question goes, and who holds the keys</h1>
+
+    <svg viewBox="0 0 960 660" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="architecture-title architecture-desc">
+      <title id="architecture-title">LUMINA system architecture</title>
+      <desc id="architecture-desc">Architecture diagram: a browser on Vercel calls the public gateway on Fly.io, which proxies to a private agent service holding every provider key; the agent reaches MongoDB Atlas, Anthropic, OpenAI and Tavily, and a forked jobs worker indexes uploaded documents through the same database.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- Zones (drawn before arrows and nodes) -->
+      <rect x="40" y="96" width="200" height="208" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <rect x="106" y="100" width="68" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="140" y="109" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">PUBLIC WEB</text>
+
+      <rect x="296" y="96" width="304" height="424" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <rect x="400" y="100" width="96" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="448" y="109" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">FLY.IO · IAD</text>
+
+      <rect x="656" y="96" width="264" height="424" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <rect x="740" y="100" width="96" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="788" y="109" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">MANAGED</text>
+
+      <!-- Arrows (before boxes) -->
+      <!-- Browser -> Gateway (HTTPS + SSE) -->
+      <line x1="240" y1="180" x2="320" y2="180" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <!-- Gateway -> Agent (private, primary flow) -->
+      <line x1="448" y1="224" x2="448" y2="272" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+      <!-- Agent -> Atlas: exit right, enter Atlas left -->
+      <line x1="600" y1="320" x2="736" y2="320" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <!-- Agent -> Anthropic: exit right (upper attach), elbow up into Anthropic bottom -->
+      <path d="M 600,296 H 780 Q 788,296 788,288 V 240" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <!-- Agent -> Search + embeddings: exit right (lower attach), elbow down into bottom node top -->
+      <path d="M 600,344 H 780 Q 788,344 788,352 V 424" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <!-- Agent forks Worker (vertical, same x) -->
+      <line x1="448" y1="368" x2="448" y2="424" stroke="#4f5d75" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+      <!-- Worker <-> Atlas: claims jobs, writes chunks (enter Atlas bottom) -->
+      <path d="M 600,456 H 780 Q 788,456 788,448 V 360" fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- Arrow labels: 6-10px clear of their stroke, masked, in open canvas -->
+      <rect x="244" y="156" width="64" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="276" y="165" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS · SSE</text>
+
+      <rect x="456" y="238" width="80" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="496" y="247" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">.INTERNAL:8000</text>
+
+      <rect x="604" y="298" width="80" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="644" y="307" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">VECTOR · TEXT</text>
+
+      <rect x="616" y="272" width="56" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="644" y="281" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">TOKENS</text>
+
+      <rect x="612" y="352" width="76" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="650" y="361" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SEARCH · EMBED</text>
+
+      <rect x="456" y="386" width="40" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="476" y="395" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">FORK</text>
+
+      <rect x="612" y="434" width="72" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="648" y="443" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">CLAIM · WRITE</text>
+
+      <!-- Node: Browser (external) -->
+      <rect x="72" y="148" width="168" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="72" y="148" width="168" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <rect x="80" y="156" width="28" height="12" rx="2" fill="transparent" stroke="rgba(122,131,153,0.40)" stroke-width="0.8"/>
+      <text x="94" y="165" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+      <text x="156" y="184" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">React UI</text>
+      <text x="156" y="200" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Vercel · static</text>
+
+      <!-- Node: Gateway -->
+      <rect x="320" y="160" width="256" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="320" y="160" width="256" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="328" y="168" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+      <text x="346" y="177" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EDGE</text>
+      <text x="448" y="196" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gateway</text>
+      <text x="448" y="212" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">auth · zod · 429 · SSE</text>
+
+      <!-- Node: Agent service (focal) -->
+      <rect x="320" y="272" width="256" height="96" rx="6" fill="#f5f5f5"/>
+      <rect x="320" y="272" width="256" height="96" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <rect x="328" y="280" width="36" height="12" rx="2" fill="transparent" stroke="rgba(235,108,54,0.50)" stroke-width="0.8"/>
+      <text x="346" y="289" fill="#eb6c36" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">KEYS</text>
+      <text x="568" y="364" fill="rgba(235,108,54,0.10)" font-size="32" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">01</text>
+      <text x="448" y="312" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Agent service</text>
+      <text x="448" y="328" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">quick + deep loops · 6 tools</text>
+      <text x="448" y="344" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">caps · spend gates · no route</text>
+
+      <!-- Node: Jobs worker -->
+      <rect x="320" y="424" width="256" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="320" y="424" width="256" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <rect x="328" y="432" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+      <text x="346" y="441" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PROC</text>
+      <text x="448" y="460" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Jobs worker</text>
+      <text x="448" y="476" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">parse · chunk · embed · probe</text>
+
+      <!-- Node: Anthropic -->
+      <rect x="688" y="176" width="200" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="688" y="176" width="200" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <rect x="696" y="184" width="28" height="12" rx="2" fill="transparent" stroke="rgba(122,131,153,0.40)" stroke-width="0.8"/>
+      <text x="710" y="193" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+      <text x="788" y="212" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Anthropic</text>
+      <text x="788" y="228" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">sonnet-5 · haiku-4.5</text>
+
+      <!-- Node: MongoDB Atlas (store) -->
+      <rect x="688" y="288" width="200" height="72" rx="6" fill="#f5f5f5"/>
+      <rect x="688" y="288" width="200" height="72" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <rect x="696" y="296" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+      <text x="710" y="305" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+      <text x="788" y="324" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">MongoDB Atlas</text>
+      <text x="788" y="340" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">threads · chunks · jobs</text>
+      <text x="788" y="354" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">GridFS · runs · cache</text>
+
+      <!-- Node: Search + embeddings -->
+      <rect x="688" y="424" width="200" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="688" y="424" width="200" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <rect x="696" y="432" width="28" height="12" rx="2" fill="transparent" stroke="rgba(122,131,153,0.40)" stroke-width="0.8"/>
+      <text x="710" y="441" fill="#7a8399" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+      <text x="788" y="460" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Tavily · OpenAI</text>
+      <text x="788" y="476" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">search · embeddings</text>
+
+      <!-- Legend strip -->
+      <line x1="40" y1="560" x2="920" y2="560" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="40" y="576" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <rect x="40" y="596" width="14" height="10" rx="2" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <text x="60" y="604" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Holds every provider key</text>
+
+      <rect x="228" y="596" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="248" y="604" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Public edge</text>
+
+      <rect x="356" y="596" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <text x="376" y="604" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Store</text>
+
+      <rect x="448" y="596" width="14" height="10" rx="2" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <text x="468" y="604" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">External / managed</text>
+
+      <line x1="616" y1="602" x2="644" y2="602" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <text x="652" y="604" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Browser traffic</text>
+
+      <line x1="764" y1="602" x2="792" y2="602" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+      <text x="800" y="604" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Async / via Mongo</text>
+    </svg>
+  </div>
+</body>
+</html>
