@@ -8,3 +8,6 @@ runs/
 reports/
 *.log
 .DS_Store
+
+# My scratch design draft: kept locally, never published.
+DESIGN.claude-draft.md
