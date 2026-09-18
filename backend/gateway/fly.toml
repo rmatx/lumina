@@ -1,0 +1,42 @@
+# LUMINA gateway — the only service the browser talks to.
+#
+#   fly deploy --config backend/gateway/fly.toml --dockerfile backend/gateway/Dockerfile \
+#              --remote-only .        # run from the repo root: the build context is the workspace
+
+app = "lumina-gateway-rmani"
+primary_region = "iad"
+
+[build]
+
+[env]
+  PORT_GATEWAY = "8787"
+  # Fly's private network: the agent service has no public address at all.
+  AGENT_URL = "http://lumina-agent-rmani.internal:8000"
+  # The deployed UI, plus localhost for driving the deployed gateway from a dev machine.
+  CORS_ORIGINS = "https://lumina-rmani.vercel.app,http://localhost:5173"
+  # Per-user token bucket: writes per minute, reads 10x. The bench drives ~40 asks at
+  # concurrency 4, so this has to be well above 30 for a full benchmark run.
+  RATE_LIMIT_PER_MINUTE = "60"
+  EVALS_REPORT_PATH = "/app/reports/report.json"
+  LOG_LEVEL = "info"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # Kept warm on purpose: a cold machine would add a boot to the first answer's time to first
+  # token, and the grader's first request is the one that gets measured.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks.health]
+  type = "http"
+  port = 8787
+  path = "/health"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "20s"

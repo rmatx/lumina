@@ -1,0 +1,57 @@
+# LUMINA agent service — the AI backend.
+#
+# Deliberately has NO [http_service]: it is not publicly reachable. The gateway calls it over
+# Fly's private network at http://lumina-agent-rmani.internal:8000. This is what makes the
+# deep-search daily cap a real cap — a cap you can bypass by calling this service directly
+# is not a cap — and it keeps the provider keys off the public internet.
+#
+#   fly deploy --config backend/agent/fly.toml --dockerfile backend/agent/Dockerfile \
+#              --remote-only .        # run from the repo root: the build context is the workspace
+
+app = "lumina-agent-rmani"
+primary_region = "iad"
+
+[build]
+
+[env]
+  PORT_AGENT = "8000"
+  VECTOR_BACKEND = "atlas-vector-search"
+  LLM_MODEL = "claude-sonnet-5"
+  LLM_MODEL_QUICK = "claude-sonnet-5"
+  LLM_MODEL_PLANNER = "claude-haiku-4-5"
+  SEARCH_PROVIDER = "tavily"
+  TAVILY_SEARCH_DEPTH = "fast"
+  EMBEDDING_MODEL = "text-embedding-3-small"
+  # The caps from AGENTS.md. Here so a reader of the deploy can see them without the code.
+  MAX_TOOL_CALLS = "8"
+  MAX_WALL_CLOCK_SEC = "90"
+  MAX_TOOL_CALLS_DEEP = "24"
+  MAX_WALL_CLOCK_SEC_DEEP = "240"
+  DEEP_DAILY_CAP = "5"
+  # Pay the Atlas and provider handshakes at boot, not inside the first answer's TTFT budget.
+  WARMUP = "true"
+  # Two cost guards are deliberately NOT set here, so there is one source of truth and
+  # flipping either takes effect immediately (a secret change restarts the machine):
+  #   fly secrets set DAILY_SPEND_CAP_USD=3  -a lumina-agent-rmani   # 0 = no ceiling
+  #   fly secrets set ANSWERS_ENABLED=false  -a lumina-agent-rmani   # /ask -> 503, rest keeps working
+  # The per-user deep cap above protects a user from themselves; anyone can invent an
+  # X-User-Id, so the daily ceiling is the only limit that bounds the bill against strangers.
+  # A deployed instance mirrors run logs into Mongo; `npm run export:runs` pulls them out.
+  RUNS_TO_MONGO = "true"
+  WORKER_IN_PROCESS = "true"
+  LOG_LEVEL = "info"
+
+# One machine, kept running: the jobs worker is forked from this process, and a stopped
+# machine would leave uploads sitting in `pending`.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+
+# Without a public service, an explicit check is what tells Fly whether the process is healthy.
+[checks.health]
+  type = "http"
+  port = 8000
+  path = "/health"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "30s"

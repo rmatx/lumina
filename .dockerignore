@@ -1,0 +1,18 @@
+# Keep the build context small, and keep secrets and local evidence out of images.
+.git
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+**/dist
+web/dist
+runs
+*.log
+.DS_Store
+.claude
+benchmark
+eval
+quality
+scripts
+DESIGN*.md
