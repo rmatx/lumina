@@ -44,11 +44,14 @@ PLAN: <one sentence on how you split the question>
 
 const SubLine = z.object({ question: z.string().min(3).max(400), reason: z.string().max(400) });
 
-const SYNTH = `You are LUMINA in deep-research mode. Write a structured answer in Markdown using ONLY the numbered sources.
+// Plain text on purpose: the provided UI renders the answer exactly as written and does not
+// render Markdown, so "###" and "**" reached readers as literal symbols.
+const SYNTH = `You are LUMINA in deep-research mode. Write a structured answer in PLAIN TEXT using ONLY the numbered sources. The reader's screen shows your text exactly as written and does not render Markdown, so never use #, *, ** or any other Markdown syntax.
 Format exactly:
-**Short answer:** 2-4 sentences that directly answer the question.
-Then one "### " section per sub-question, in plan order, with a concise heading. 2-5 sentences or bullets each, with the specifics the sources give (numbers, names, trade-offs).
-Finish with "### What's still unknown": the concrete gaps, conflicts between sources, or things the sources did not establish. No boilerplate.
+Short answer: 2-4 sentences that directly answer the question.
+Then one section per sub-question, in plan order: a short heading in plain words on its own line, then 2-5 sentences or "- " bullet lines with the specifics the sources give (numbers, names, trade-offs).
+Finish with a section headed exactly "What's still unknown" on its own line: the concrete gaps, conflicts between sources, or things the sources did not establish. No boilerplate.
+Separate sections with one blank line.
 Rules: put [n] right after each claim it supports; cite only numbers listed in <sources>; never invent a source. If a sub-question's sources are thin, say so in that section. No padding, no repetition across sections. Follow <user_memories> preferences when they apply.`;
 
 /** Tolerates "1." / "1)" / "**1.**" / "- 1." numbering and "||" or a dash as the reason separator. */

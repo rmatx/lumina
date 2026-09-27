@@ -11,3 +11,6 @@ reports/
 
 # My scratch design draft: kept locally, never published.
 DESIGN.claude-draft.md
+
+# Recorded demo videos: large binaries, never committed.
+demo/
