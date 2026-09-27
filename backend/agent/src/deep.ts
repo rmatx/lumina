@@ -3,13 +3,13 @@
  * parallel (bounded) → merge into one citation numbering → structured synthesis.
  * Every retrieval step and every source carries the sub-question it served.
  */
-import { z } from 'zod';
 import { PlanEvent } from '@lumina/contract';
 import { env } from './env.js';
 import type { AskRun, PendingStep } from './run.js';
 import { recallMemories } from './memory.js';
+import { planResearch } from './planner.js';
 import { searchDocuments } from './rag.js';
-import { llmCost, textCall } from './providers/llm.js';
+import { llmCost } from './providers/llm.js';
 import {
   capNote,
   docMaterial,
@@ -29,21 +29,6 @@ import {
 } from './compose.js';
 import { UpstreamError, mapLimit } from './util.js';
 
-/**
- * A compact line format rather than JSON structured output: in our probes it halved the
- * planner's wall clock (fewer tokens, no grammar warm-up), and the plan is deep's first paint.
- */
-const PLANNER = `You plan research for a multi-part question, the way a careful analyst would before searching.
-Break it into ${env.deepSubQuestionsMin}-${env.deepSubQuestionsMax} sub-questions (usually 4) that together answer it.
-- Each covers a DIFFERENT facet: never restate the original question; no overlap between sub-questions.
-- Each is specific, at most 16 words, and answerable from public web sources.
-Output exactly this format and nothing else:
-PLAN: <one sentence on how you split the question>
-1. <sub-question> || <why it matters, at most 10 words>
-2. <sub-question> || <why it matters, at most 10 words>`;
-
-const SubLine = z.object({ question: z.string().min(3).max(400), reason: z.string().max(400) });
-
 // Plain text on purpose: the provided UI renders the answer exactly as written and does not
 // render Markdown, so "###" and "**" reached readers as literal symbols.
 const SYNTH = `You are LUMINA in deep-research mode. Write a structured answer in PLAIN TEXT using ONLY the numbered sources. The reader's screen shows your text exactly as written and does not render Markdown, so never use #, *, ** or any other Markdown syntax.
@@ -53,48 +38,6 @@ Then one section per sub-question, in plan order: a short heading in plain words
 Finish with a section headed exactly "What's still unknown" on its own line: the concrete gaps, conflicts between sources, or things the sources did not establish. No boilerplate.
 Separate sections with one blank line.
 Rules: put [n] right after each claim it supports; cite only numbers listed in <sources>; never invent a source. If a sub-question's sources are thin, say so in that section. No padding, no repetition across sections. Follow <user_memories> preferences when they apply.`;
-
-/** Tolerates "1." / "1)" / "**1.**" / "- 1." numbering and "||" or a dash as the reason separator. */
-function parsePlan(text: string) {
-  const reason = /^\W*PLAN\W*:\s*(.+)$/im.exec(text)?.[1]?.replace(/\*+/g, '').trim();
-  const subs = text
-    .split('\n')
-    .map((l) => /^\s*(?:[-*]\s*)?\**\s*\d+\s*[.):]\**\s*(.+?)\s*$/.exec(l)?.[1])
-    .filter((l): l is string => Boolean(l))
-    .map((l) => {
-      const [q, why] = l.split(/\s*\|\|\s*|\s+[—–]\s+/);
-      return SubLine.parse({ question: q!.replace(/\*+/g, '').trim(), reason: (why ?? '').replace(/\*+/g, '').trim() });
-    })
-    .slice(0, env.deepSubQuestionsMax);
-  return { reason, subs };
-}
-
-async function plan(run: AskRun, input: AskInput) {
-  let last = '';
-  // A second attempt covers a one-off format slip; a provider exception is not retried here.
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const { text, usage } = await textCall({
-      model: env.llmModelPlanner,
-      maxTokens: 600,
-      signal: run.signal,
-      system: PLANNER,
-      // Earlier questions only: prior answers in the prompt make the planner imitate an answer
-      // ("**Short answer:** …") instead of writing a plan. The cap probe caught exactly that.
-      user:
-        (input.priorQuestions.length ? `Earlier questions in this conversation:\n${input.priorQuestions.map((q) => `- ${q}`).join('\n')}\n\n` : '') +
-        `Question to plan: ${input.query}\n\nReply with only the PLAN line and the numbered sub-questions.`
-    });
-    run.addUsage(env.llmModelPlanner, usage, llmCost);
-    const { reason, subs } = parsePlan(text);
-    if (subs.length >= env.deepSubQuestionsMin) {
-      return { reason, subQuestions: subs.map((s, i) => ({ i: i + 1, question: s.question, ...(s.reason ? { reason: s.reason } : {}) })) };
-    }
-    last = text;
-  }
-  throw new Error(
-    `planner returned fewer than ${env.deepSubQuestionsMin} usable sub-questions twice; last output: ${JSON.stringify(last.slice(0, 300))}`
-  );
-}
 
 export async function runDeep(run: AskRun, input: AskInput): Promise<AnswerOut> {
   const { query, mode, spaceId } = input;
@@ -109,10 +52,17 @@ export async function runDeep(run: AskRun, input: AskInput): Promise<AnswerOut> 
   const saveP = maybeSaveMemory(run, query, head);
   saveP.catch(() => undefined);
 
-  const planned = await run.tool('plan_research', { question: query, model: env.llmModelPlanner }, 'deep search: decompose the question before retrieving anything', () => plan(run, input), {
-    sink: head,
-    describe: (p) => ({ subQuestions: p.subQuestions.length })
-  });
+  const planned = await run.tool(
+    'plan_research',
+    { question: query, model: env.llmModelPlanner },
+    'deep search: decompose the question before retrieving anything',
+    () => planResearch({ query, priorQuestions: input.priorQuestions, signal: run.signal, onUsage: (u) => run.addUsage(env.llmModelPlanner, u, llmCost) }),
+    {
+      sink: head,
+      // unanchored > 0 means a sub-question still did not name the subject after the retry
+      describe: (p) => ({ subQuestions: p.subQuestions.length, attempts: p.attempts, unanchored: p.unanchored, ...(p.retried ? { retried: p.retried } : {}) })
+    }
+  );
   if (!planned.ok) throw new UpstreamError(`plan_research: ${planned.error}`);
   const subs = planned.value.subQuestions;
 
